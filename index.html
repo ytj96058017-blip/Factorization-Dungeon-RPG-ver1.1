@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인수분해 마왕 퇴치 RPG - Factor Dungeon</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;600;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        jua: ['Jua', 'sans-serif'],
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    },
+                    colors: {
+                        dungeon: {
+                            bg: '#0f172a',
+                            card: '#1e293b',
+                            accent: '#8b5cf6',
+                            gold: '#f59e0b',
+                            danger: '#ef4444'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #070a12;
+            color: #f3f4f6;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        .font-jua { font-family: 'Jua', sans-serif; }
+        
+        /* Shake & Hit Animations */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            20%, 60% { transform: translate(-10px, 6px); }
+            40%, 80% { transform: translate(10px, -6px); }
+        }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+
+        @keyframes levelup {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        .animate-levelup { animation: levelup 1.2s forwards; }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); }
+            50% { box-shadow: 0 0 35px rgba(139, 92, 246, 0.8); }
+        }
+        .glow-effect { animation: pulse-glow 2s infinite; }
+
+        /* RPG Battle Arena Animations */
+        @keyframes idle-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-7px); }
+        }
+        .animate-idle { animation: idle-float 2.5s ease-in-out infinite; }
+
+        @keyframes spell-fly {
+            0% { transform: translate(0, 0) scale(0.6) rotate(0deg); opacity: 1; }
+            50% { transform: translate(120px, -25px) scale(1.4) rotate(180deg); opacity: 1; }
+            100% { transform: translate(240px, 0) scale(1.8) rotate(360deg); opacity: 0; }
+        }
+        .animate-spell { animation: spell-fly 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+
+        @keyframes monster-lunge {
+            0% { transform: translateX(0) scale(1); }
+            35% { transform: translateX(-100px) scale(1.3); }
+            100% { transform: translateX(0) scale(1); }
+        }
+        .animate-monster-lunge { animation: monster-lunge 0.45s ease-in-out; }
+
+        @keyframes hero-cast {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-16px) scale(1.2); }
+        }
+        .animate-hero-cast { animation: hero-cast 0.4s ease-out; }
+
+        @keyframes dmg-float {
+            0% { opacity: 0; transform: translateY(0) scale(0.5); }
+            20% { opacity: 1; transform: translateY(-12px) scale(1.3); }
+            80% { opacity: 1; transform: translateY(-28px) scale(1); }
+            100% { opacity: 0; transform: translateY(-42px) scale(0.8); }
+        }
+        .animate-dmg-float { animation: dmg-float 1s ease-out forwards; }
+
+        .battle-stage-bg {
+            background: radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f172a 70%, #020617 100%);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.85);
+        }
+
+        @keyframes rage-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.7), inset 0 0 15px rgba(239, 68, 68, 0.5); }
+            50% { box-shadow: 0 0 35px rgba(239, 68, 68, 1), inset 0 0 25px rgba(239, 68, 68, 0.8); }
+        }
+        .animate-rage { animation: rage-glow 1.2s infinite; }
+
+        .card-selected {
+            border-color: #f59e0b !important;
+            background-color: #312e81 !important;
+            transform: scale(1.05);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden relative">
+
+    <!-- Top Header & Player RPG Bar -->
+    <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40 px-4 py-2.5">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <!-- Logo -->
+            <div class="flex items-center space-x-2 cursor-pointer" onclick="goHome()">
+                <div class="bg-violet-600 text-white p-2 rounded-lg shadow-lg">
+                    <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-jua text-lg md:text-xl text-violet-400 tracking-wide">인수분해 던전 RPG</h1>
+                    <p class="text-[10px] text-slate-400 hidden sm:block">중3 수학 다항식 탐험기</p>
+                </div>
+            </div>
+
+            <!-- Player Quick RPG Stats -->
+            <div id="player-quick-stats" class="hidden sm:flex items-center space-x-4 text-xs font-semibold bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+                <div class="flex items-center space-x-1 text-amber-400">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Lv.<span id="header-player-lv">1</span> 용사</span>
+                </div>
+                <div class="flex items-center space-x-1 text-yellow-400">
+                    <i class="fa-solid fa-coins"></i>
+                    <span id="header-gold">0</span>G
+                </div>
+                <div class="w-24 space-y-0.5">
+                    <div class="flex justify-between text-[10px] text-slate-300">
+                        <span>HP</span>
+                        <span id="header-hp-text">100/100</span>
+                    </div>
+                    <div class="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden">
+                        <div id="header-hp-bar" class="bg-emerald-500 h-full w-full transition-all duration-300"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Controls -->
+            <div class="flex items-center space-x-2">
+                <button id="retreat-btn" onclick="retreatToMenu()" class="hidden px-2.5 py-1.5 bg-red-900/60 hover:bg-red-800 text-red-200 rounded-lg text-xs border border-red-700/60 flex items-center space-x-1">
+                    <i class="fa-solid fa-person-running"></i>
+                    <span>마을로 후퇴</span>
+                </button>
+                <button onclick="toggleAudio()" id="audio-btn" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs border border-slate-700 flex items-center space-x-1">
+                    <i class="fa-solid fa-volume-high text-violet-400"></i>
+                    <span class="hidden sm:inline">음량</span>
+                </button>
+                <button onclick="openRankingModal()" class="px-2.5 py-1.5 bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 rounded-lg text-xs border border-amber-500/30 flex items-center space-x-1">
+                    <i class="fa-solid fa-trophy"></i>
+                    <span>실시간 랭킹</span>
+                </button>
+                <button onclick="openGuideModal()" class="px-2.5 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 rounded-lg text-xs border border-indigo-500/30 flex items-center space-x-1">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>공식 가이드</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow flex items-center justify-center p-3 md:p-4 max-w-4xl mx-auto w-full">
+
+        <!-- 1. START / STAGE SELECT SCREEN -->
+        <section id="start-screen" class="w-full space-y-6 text-center py-4">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl glow-effect space-y-4">
+                <div class="inline-block px-4 py-1.5 bg-violet-900/50 border border-violet-500/40 text-violet-300 text-sm rounded-full font-semibold">
+                    ⚔️ 수학 마왕을 물리치는 본격 인수분해 RPG
+                </div>
+                <h2 class="font-jua text-3xl md:text-5xl text-white">인수분해 던전 헌터</h2>
+                <p class="text-slate-300 text-sm md:text-base max-w-lg mx-auto leading-relaxed">
+                    층별로 등장하는 몬스터에 맞서 인수 카드를 조합해 마법을 펼치세요!<br>
+                    골드로 아이템을 사고, 경험치로 레벨업하여 인수분해 마왕을 퇴치하세요.
+                </p>
+
+                <!-- Player Nickname Setup Box -->
+                <div class="bg-slate-800/90 p-4 rounded-xl border border-violet-500/40 max-w-md mx-auto space-y-2">
+                    <label class="block text-xs font-bold text-violet-300 text-left flex items-center space-x-1">
+                        <i class="fa-solid fa-id-card"></i>
+                        <span>용사 닉네임 설정</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input id="nickname-input" type="text" maxlength="10" placeholder="닉네임을 입력하세요" value="인수분해용사" onchange="updateStartScreenHeroInfo()" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-amber-300 font-bold focus:outline-none focus:border-violet-500">
+                    </div>
+                </div>
+
+                <!-- RPG Hero Character Intro -->
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 max-w-md mx-auto flex items-center justify-around">
+                    <div class="text-center">
+                        <div class="text-4xl">🧙‍♂️</div>
+                        <div id="hero-display-name" class="text-xs font-bold text-violet-300 mt-1">인수분해용사</div>
+                    </div>
+                    <div class="text-left text-xs space-y-1 text-slate-300">
+                        <div>🛡️ 현재 스탯: <span id="start-hero-lv" class="text-amber-400 font-bold">Lv.1 용사</span></div>
+                        <div>❤️ 체력: <span id="start-hero-hp" class="text-emerald-400 font-bold">100 / 100</span></div>
+                        <div>⚔️ 공격력: <span id="start-hero-atk" class="text-amber-400 font-bold">40</span></div>
+                        <div>💰 보유 자금: <span id="start-hero-gold" class="text-yellow-400 font-bold">50 Gold</span></div>
+                    </div>
+                </div>
+
+                <!-- Stage Selection Cards (Clickable) -->
+                <div class="text-xs text-amber-400 font-bold pt-2 flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    <span>도전할 던전 스테이지를 선택하세요 (무한 파밍 가능!)</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-left max-w-2xl mx-auto">
+                    <button onclick="selectStageAndStart(0)" class="p-3 bg-slate-800/80 hover:bg-violet-900/50 hover:border-violet-500 rounded-xl border border-slate-700 transition group text-left">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-violet-400 font-bold">STAGE 1 (4 Floors)</span>
+                            <span class="text-[10px] px-1.5 py-0.5 bg-violet-950 text-violet-300 rounded border border-violet-800">초급</span>
+                        </div>
+                        <div class="font-bold text-sm text-slate-200 group-hover:text-amber-300">공통인수 묶기</div>
+                        <div class="text-xs text-slate-400">ma + mb = m(a+b)</div>
+                    </button>
+
+                    <button onclick="selectStageAndStart(1)" class="p-3 bg-slate-800/80 hover:bg-violet-900/50 hover:border-violet-500 rounded-xl border border-slate-700 transition group text-left">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-violet-400 font-bold">STAGE 2 (4 Floors)</span>
+                            <span class="text-[10px] px-1.5 py-0.5 bg-indigo-950 text-indigo-300 rounded border border-indigo-800">중급</span>
+                        </div>
+                        <div class="font-bold text-sm text-slate-200 group-hover:text-amber-300">완전제곱식</div>
+                        <div class="text-xs text-slate-400">(a ± b)²</div>
+                    </button>
+
+                    <button onclick="selectStageAndStart(2)" class="p-3 bg-slate-800/80 hover:bg-violet-900/50 hover:border-violet-500 rounded-xl border border-slate-700 transition group text-left">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-violet-400 font-bold">STAGE 3 (4 Floors)</span>
+                            <span class="text-[10px] px-1.5 py-0.5 bg-indigo-950 text-indigo-300 rounded border border-indigo-800">중급</span>
+                        </div>
+                        <div class="font-bold text-sm text-slate-200 group-hover:text-amber-300">합차 공식</div>
+                        <div class="text-xs text-slate-400">a² - b² = (a+b)(a-b)</div>
+                    </button>
+
+                    <button onclick="selectStageAndStart(3)" class="p-3 bg-slate-800/80 hover:bg-violet-900/50 hover:border-violet-500 rounded-xl border border-slate-700 transition group text-left">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-violet-400 font-bold">STAGE 4 (4 Floors)</span>
+                            <span class="text-[10px] px-1.5 py-0.5 bg-amber-950 text-amber-300 rounded border border-amber-800">상급</span>
+                        </div>
+                        <div class="font-bold text-sm text-slate-200 group-hover:text-amber-300">이차식 기본</div>
+                        <div class="text-xs text-slate-400">x² + (a+b)x + ab</div>
+                    </button>
+
+                    <button onclick="selectStageAndStart(4)" class="p-3 bg-slate-800/80 hover:bg-violet-900/50 hover:border-violet-500 rounded-xl border border-slate-700 transition group text-left col-span-1 md:col-span-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-red-400 font-bold">STAGE 5 (4 Floors)</span>
+                            <span class="text-[10px] px-1.5 py-0.5 bg-red-950 text-red-300 rounded border border-red-800 font-extrabold animate-pulse">최고난도 보스전</span>
+                        </div>
+                        <div class="font-bold text-sm text-slate-200 group-hover:text-amber-300">대각선 멜빵법 (ax² + bx + c)</div>
+                        <div class="text-xs text-slate-400">연습장/대각선 계산기를 활용하여 인수분해 마왕을 퇴치하세요!</div>
+                    </button>
+                </div>
+
+                <div class="pt-2 flex flex-col sm:flex-row justify-center gap-3">
+                    <button onclick="resetHeroAndStart()" class="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-rotate-left text-red-400"></i>
+                        <span>용사 캐릭터 새로 키우기 (Lv.1 초기화)</span>
+                    </button>
+                    <button onclick="openCrossToolModal()" class="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-calculator text-amber-400"></i>
+                        <span>대각선(멜빵법) 연습장 시뮬레이터</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. IN-GAME BATTLE ARENA -->
+        <section id="game-screen" class="w-full hidden space-y-3">
+            <!-- Stage Bar & Timer Header -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center shadow">
+                <div class="flex items-center space-x-2">
+                    <span id="stage-badge" class="px-2.5 py-1 bg-violet-600 text-white font-bold text-xs rounded-full">Stage 1</span>
+                    <span id="floor-badge" class="px-2 py-0.5 bg-indigo-900/80 border border-indigo-500/30 text-indigo-300 font-bold text-xs rounded">1-1층</span>
+                    <span id="stage-title" class="text-slate-300 font-semibold text-xs md:text-sm hidden sm:inline">공통인수 묶기</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div class="text-amber-400 font-jua text-base flex items-center space-x-1">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span id="combo-count">0 Combo</span>
+                    </div>
+                    <div class="text-slate-300 font-semibold text-xs md:text-sm">
+                        점수: <span id="score-val" class="text-violet-400 font-bold">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RPG Battle Stage Viewport -->
+            <div id="battle-box" class="battle-stage-bg border border-violet-900/60 rounded-2xl p-4 shadow-2xl relative overflow-hidden space-y-3">
+                
+                <div class="relative w-full h-48 sm:h-56 rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden flex justify-between items-end p-4 sm:p-6 backdrop-blur-sm">
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-violet-950/20 pointer-events-none"></div>
+
+                    <!-- HERO POSITION (Left) -->
+                    <div class="relative z-10 flex flex-col items-center">
+                        <div id="hero-floating-dmg" class="absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-none z-30 min-w-[80px] text-center"></div>
+
+                        <div class="mb-2 bg-slate-900/90 border border-violet-500/40 px-2.5 py-1 rounded-lg text-center shadow-lg min-w-[110px]">
+                            <div class="flex items-center justify-between gap-1 text-[11px]">
+                                <span class="font-bold text-violet-300 truncate max-w-[65px]" id="hero-stage-name">용사</span>
+                                <span class="text-[10px] text-amber-400 font-bold" id="hero-lv-text">Lv.1</span>
+                            </div>
+                            <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-700/80 mt-1">
+                                <div id="player-hp-bar" class="bg-emerald-500 h-full w-full transition-all duration-300"></div>
+                            </div>
+                            <div class="text-[9px] text-slate-400 mt-0.5 text-right font-mono" id="player-hp-text">100/100</div>
+                        </div>
+
+                        <div id="hero-avatar-box" class="relative transition-all duration-300 animate-idle">
+                            <div id="player-buff-aura" class="hidden absolute inset-0 rounded-full bg-amber-400/30 blur-md animate-pulse scale-125"></div>
+                            <div id="hero-sprite" class="text-5xl sm:text-6xl filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)] relative z-10 transition-transform">
+                                🧙‍♂️
+                            </div>
+                            <div id="player-buff-icon" class="absolute -top-2 -right-2 bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full shadow border border-amber-200 hidden">
+                                ⚡2X
+                            </div>
+                            <div class="w-16 sm:w-20 h-3.5 bg-violet-950/80 border border-violet-500/40 rounded-[50%] -mt-2 shadow-inner mx-auto"></div>
+                        </div>
+                    </div>
+
+                    <!-- CENTER FX -->
+                    <div class="relative flex-1 h-full flex items-center justify-center pointer-events-none">
+                        <div id="spell-projectile" class="absolute left-6 hidden text-3xl sm:text-4xl filter drop-shadow-[0_0_12px_rgba(139,92,246,0.9)] z-20">
+                            ⚡✨🔮
+                        </div>
+                        <div id="slash-effect" class="absolute right-6 hidden text-4xl sm:text-5xl filter drop-shadow-[0_0_15px_rgba(239,68,68,0.9)] z-20">
+                            💥🗡️
+                        </div>
+                    </div>
+
+                    <!-- MONSTER POSITION (Right) -->
+                    <div class="relative z-10 flex flex-col items-center">
+                        <div id="monster-floating-dmg" class="absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-none z-30 min-w-[80px] text-center"></div>
+
+                        <div id="monster-card-box" class="mb-2 bg-slate-900/90 border border-red-500/40 px-2.5 py-1 rounded-lg text-center shadow-lg min-w-[125px]">
+                            <div class="flex items-center justify-between gap-1 text-[11px]">
+                                <span id="monster-name" class="font-bold text-red-400 truncate max-w-[80px]">말랑 슬라임</span>
+                                <div class="flex items-center space-x-1">
+                                    <span id="monster-rage-badge" class="hidden text-[8px] px-1 bg-red-600 text-white font-extrabold rounded animate-pulse">🔥광폭화</span>
+                                    <span id="monster-type-tag" class="text-[9px] px-1 bg-red-950 text-red-300 rounded border border-red-800">MOB</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-700/80 mt-1">
+                                <div id="monster-hp-bar" class="bg-gradient-to-r from-red-500 to-amber-500 h-full w-full transition-all duration-300"></div>
+                            </div>
+                            <div id="monster-shield-container" class="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-cyan-700/80 mt-0.5 hidden">
+                                <div id="monster-shield-bar" class="bg-cyan-400 h-full w-full transition-all duration-300"></div>
+                            </div>
+                            <div class="flex justify-between items-center text-[9px] text-slate-400 mt-0.5 font-mono">
+                                <span id="monster-shield-text" class="text-cyan-300 hidden">🛡️0</span>
+                                <span id="monster-hp-text" class="ml-auto">HP: 100/100</span>
+                            </div>
+                        </div>
+
+                        <div id="monster-container" class="relative transition-all duration-300 animate-idle">
+                            <div id="monster-avatar" class="text-5xl sm:text-6xl filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)] relative z-10">
+                                🟢
+                            </div>
+                            <div class="w-16 sm:w-20 h-3.5 bg-red-950/80 border border-red-500/40 rounded-[50%] -mt-2 shadow-inner mx-auto"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Battle Log -->
+                <div id="battle-log" class="bg-slate-950/80 p-2 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-400 h-9 overflow-y-auto flex items-center">
+                    💬 마법사 용사가 인수분해 던전에 입장했습니다!
+                </div>
+
+                <!-- Math Problem Box -->
+                <div class="text-center bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 shadow-inner space-y-1 relative">
+                    <div class="text-xs text-violet-400 font-bold flex justify-center items-center space-x-1">
+                        <i class="fa-solid fa-scroll"></i>
+                        <span>다항식을 인수분해하는 마법 주문을 완성하세요:</span>
+                    </div>
+                    <div id="question-expression" class="text-2xl md:text-3xl font-extrabold text-white font-mono tracking-wide py-1">
+                        3x² + 6x
+                    </div>
+
+                    <div id="stage5-calc-banner" class="hidden pt-1">
+                        <button onclick="openCrossToolModal()" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg border border-amber-300 flex items-center justify-center space-x-1.5 mx-auto animate-pulse">
+                            <i class="fa-solid fa-calculator"></i>
+                            <span>📐 Stage 5 대각선(멜빵) 실시간 계산기 연동 중!</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Item & Skill Toolbar -->
+                <div class="flex justify-between items-center bg-slate-800/40 p-2 rounded-xl border border-slate-800 text-xs gap-2">
+                    <span class="text-slate-400 hidden sm:inline">스킬 & 아이템:</span>
+                    <div class="flex space-x-2 w-full sm:w-auto justify-end">
+                        <button onclick="openCrossToolModal()" class="px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-300 rounded-lg flex items-center space-x-1 transition text-xs">
+                            <i class="fa-solid fa-calculator"></i>
+                            <span>계산기</span>
+                        </button>
+                        <button onclick="usePotion()" class="px-2.5 py-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 rounded-lg flex items-center space-x-1 transition text-xs">
+                            <span>🧪 포션 (30G)</span>
+                        </button>
+                        <button onclick="useHint()" class="px-2.5 py-1.5 bg-indigo-950 hover:bg-indigo-900 border border-indigo-600/50 text-indigo-300 rounded-lg flex items-center space-x-1 transition text-xs">
+                            <span>📜 힌트 (50G)</span>
+                        </button>
+                        <button onclick="useCritical()" class="px-2.5 py-1.5 bg-amber-950 hover:bg-amber-900 border border-amber-600/50 text-amber-300 rounded-lg flex items-center space-x-1 transition text-xs">
+                            <span>⚡ 크리티컬 (40G)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Target Slot -->
+                <div class="flex justify-center items-center gap-2 pt-1">
+                    <span class="text-xs text-slate-400">선택한 인수:</span>
+                    <div id="selected-cards-display" class="flex gap-2 min-h-[38px] items-center">
+                        <span class="text-slate-500 text-xs italic">보기의 카드를 클릭하여 2개 선택하세요</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Answers Grid -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 md:p-4 shadow-xl space-y-3">
+                <div class="flex justify-between items-center text-xs text-slate-400">
+                    <span>보기에서 알맞은 인수 카드를 조합하세요:</span>
+                    <button onclick="clearSelectedCards()" class="text-slate-400 hover:text-amber-400 text-xs flex items-center space-x-1">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span>선택 취소</span>
+                    </button>
+                </div>
+
+                <div id="cards-container" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
+
+                <div class="pt-1">
+                    <button id="attack-btn" onclick="submitAttack()" disabled class="w-full py-3 bg-gradient-to-r from-amber-500 to-violet-600 disabled:opacity-40 disabled:cursor-not-allowed hover:from-amber-400 hover:to-violet-500 text-white font-jua text-lg rounded-xl shadow-lg transition active:scale-98 flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-burst"></i>
+                        <span>인수분해 마법 공격 발사!</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- LEVEL UP POPUP OVERLAY -->
+        <div id="levelup-modal" class="fixed inset-0 pointer-events-none z-50 flex items-center justify-center hidden">
+            <div class="bg-gradient-to-r from-amber-500 to-violet-600 p-1 rounded-2xl shadow-2xl animate-levelup">
+                <div class="bg-slate-900 px-8 py-6 rounded-xl text-center space-y-2">
+                    <div class="text-4xl">🌟 LEVEL UP! 🌟</div>
+                    <div class="font-jua text-2xl text-amber-400">용사의 레벨이 상승했습니다!</div>
+                    <div id="levelup-details" class="text-xs text-slate-300">최대 HP 증가 & 공격력 상승 & HP 완전 회복</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GAMEOVER MODAL -->
+        <div id="defeat-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-slate-900 border border-red-900/80 w-full max-w-md rounded-2xl p-6 text-center shadow-2xl space-y-4">
+                <div class="text-6xl">💀</div>
+                <div>
+                    <h3 class="font-jua text-3xl text-red-400">용사 쓰러지다...</h3>
+                    <p class="text-slate-400 text-xs mt-1">몬스터의 공격에 체력이 모두 소진되었습니다.</p>
+                </div>
+
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 space-y-1 text-xs text-left">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">진행 도달:</span>
+                        <span id="defeat-floor" class="text-amber-400 font-bold">Stage 1 (1-2층)</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">획득한 점수:</span>
+                        <span id="defeat-score" class="text-violet-400 font-bold">0점</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="restartGame()" class="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-jua text-base rounded-xl transition">
+                        처음부터 재도전
+                    </button>
+                    <button onclick="goHome()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-jua text-base rounded-xl border border-slate-700 transition">
+                        메인 메뉴
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. RESULT MODAL -->
+        <div id="result-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-slate-900 border border-violet-500/50 w-full max-w-md rounded-2xl p-6 text-center shadow-2xl space-y-4">
+                <div class="text-6xl animate-bounce">🏆</div>
+                <div>
+                    <h3 class="font-jua text-3xl text-amber-400">던전 정복 성공!</h3>
+                    <p class="text-slate-300 text-xs mt-1">인수분해 마왕을 물리치고 수학의 평화를 지켰습니다!</p>
+                </div>
+
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 space-y-2 text-xs text-left">
+                    <div class="flex justify-between items-center border-b border-slate-700/60 pb-1.5">
+                        <span class="text-slate-400">최종 점수:</span>
+                        <span id="res-score" class="text-amber-400 font-bold text-base">0 점</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-700/60 pb-1.5">
+                        <span class="text-slate-400">최대 콤보:</span>
+                        <span id="res-combo" class="text-violet-400 font-bold">0 회</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400">용사 칭호:</span>
+                        <span id="res-rank" class="text-emerald-400 font-bold">인수분해 수련생</span>
+                    </div>
+                </div>
+
+                <button onclick="restartGame()" class="w-full py-3.5 bg-gradient-to-r from-violet-600 to-amber-500 hover:from-violet-500 hover:to-amber-400 text-white font-jua text-lg rounded-xl shadow-lg transition">
+                    새 던전 도전하기
+                </button>
+            </div>
+        </div>
+
+        <!-- 4. GUIDE MODAL -->
+        <div id="guide-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-slate-900 border border-indigo-500/40 w-full max-w-lg rounded-2xl p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <h3 class="font-jua text-xl text-indigo-300 flex items-center space-x-2">
+                        <i class="fa-solid fa-book-open"></i>
+                        <span>중3 인수분해 공식 가이드</span>
+                    </h3>
+                    <button onclick="closeGuideModal()" class="text-slate-400 hover:text-white text-lg">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <div class="bg-slate-800/70 p-3 rounded-xl border border-slate-700">
+                        <span class="px-2 py-0.5 bg-violet-900/80 text-violet-300 font-bold rounded text-[10px]">STAGE 1</span>
+                        <h4 class="font-bold text-sm text-amber-300 mt-1">공통인수로 묶기</h4>
+                        <p class="text-slate-300 mt-0.5">각 항에 공통으로 들어있는 인수를 괄호 밖으로 묶어냅니다.</p>
+                        <div class="bg-slate-950 p-2 rounded mt-2 font-mono text-emerald-400 text-center">
+                            ma + mb = m(a + b)
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/70 p-3 rounded-xl border border-slate-700">
+                        <span class="px-2 py-0.5 bg-violet-900/80 text-violet-300 font-bold rounded text-[10px]">STAGE 2</span>
+                        <h4 class="font-bold text-sm text-amber-300 mt-1">완전제곱식</h4>
+                        <p class="text-slate-300 mt-0.5">양 끝 항이 제곱이고 가운데 항이 2 × a × b 형태일 때 적용합니다.</p>
+                        <div class="bg-slate-950 p-2 rounded mt-2 font-mono text-emerald-400 text-center space-y-1">
+                            <div>a² + 2ab + b² = (a + b)²</div>
+                            <div>a² - 2ab + b² = (a - b)²</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/70 p-3 rounded-xl border border-slate-700">
+                        <span class="px-2 py-0.5 bg-violet-900/80 text-violet-300 font-bold rounded text-[10px]">STAGE 3</span>
+                        <h4 class="font-bold text-sm text-amber-300 mt-1">합차 공식</h4>
+                        <p class="text-slate-300 mt-0.5">두 항의 제곱의 차 형태일 때 한 번은 더하고 한 번은 뺍니다.</p>
+                        <div class="bg-slate-950 p-2 rounded mt-2 font-mono text-emerald-400 text-center">
+                            a² - b² = (a + b)(a - b)
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/70 p-3 rounded-xl border border-slate-700">
+                        <span class="px-2 py-0.5 bg-violet-900/80 text-violet-300 font-bold rounded text-[10px]">STAGE 4</span>
+                        <h4 class="font-bold text-sm text-amber-300 mt-1">이차식 (x² 계수가 1인 경우)</h4>
+                        <p class="text-slate-300 mt-0.5">합이 b이고 곱이 c인 두 정수 m, n을 찾습니다.</p>
+                        <div class="bg-slate-950 p-2 rounded mt-2 font-mono text-emerald-400 text-center">
+                            x² + (m + n)x + mn = (x + m)(x + n)
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/70 p-3 rounded-xl border border-slate-700">
+                        <span class="px-2 py-0.5 bg-violet-900/80 text-violet-300 font-bold rounded text-[10px]">STAGE 5</span>
+                        <h4 class="font-bold text-sm text-amber-300 mt-1">대각선 멜빵법 (ax² + bx + c)</h4>
+                        <p class="text-slate-300 mt-0.5">ax²을 p·r로, c를 q·s로 나누어 대각선 곱의 합(ps + qr)이 b가 되도록 만듭니다.</p>
+                        <div class="bg-slate-950 p-2 rounded mt-2 font-mono text-emerald-400 text-center">
+                            ax² + bx + c = (px + q)(rx + s)
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="closeGuideModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition">
+                    닫기
+                </button>
+            </div>
+        </div>
+
+        <!-- 5. CROSS MULTIPLICATION TOOL MODAL -->
+        <div id="crosstool-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-slate-900 border border-amber-500/40 w-full max-w-md rounded-2xl p-5 shadow-2xl space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <h3 class="font-jua text-xl text-amber-300 flex items-center space-x-2">
+                        <i class="fa-solid fa-calculator"></i>
+                        <span>대각선(멜빵법) 연습장 계산기</span>
+                    </h3>
+                    <button onclick="closeCrossToolModal()" class="text-slate-400 hover:text-white text-lg">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <div id="ct-auto-notice" class="hidden p-2 bg-amber-950/60 border border-amber-500/40 rounded-lg text-amber-300 font-semibold text-[11px] text-center">
+                        ⚡ 현재 문제의 계수(a, b, c)가 자동으로 대각선 계산기에 세팅되었습니다!
+                    </div>
+                    <p class="text-slate-300">인수분해할 이차식 <span class="font-mono text-amber-400 font-bold">ax² + bx + c</span> 의 계수를 지정하고 인수 조합을 테스트해보세요.</p>
+                    
+                    <div class="grid grid-cols-3 gap-2 bg-slate-800 p-3 rounded-xl border border-slate-700">
+                        <div>
+                            <label class="text-[10px] text-slate-400">a (x² 계수)</label>
+                            <input id="ct-a" type="number" value="2" oninput="calculateCrossTool()" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-center font-mono text-white">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400">b (x 계수)</label>
+                            <input id="ct-b" type="number" value="7" oninput="calculateCrossTool()" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-center font-mono text-white">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400">c (상수항)</label>
+                            <input id="ct-c" type="number" value="3" oninput="calculateCrossTool()" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-center font-mono text-white">
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-amber-500/30 space-y-2">
+                        <div class="text-[11px] font-bold text-amber-300">대각선 계수 설정 (px + q)(rx + s)</div>
+                        <div class="grid grid-cols-2 gap-3 items-center font-mono">
+                            <div class="space-y-1">
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-slate-400">p:</span>
+                                    <input id="ct-p" type="number" value="1" oninput="calculateCrossTool()" class="w-full bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-emerald-400">
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-slate-400">r:</span>
+                                    <input id="ct-r" type="number" value="2" oninput="calculateCrossTool()" class="w-full bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-emerald-400">
+                                </div>
+                            </div>
+                            <div class="space-y-1">
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-slate-400">q:</span>
+                                    <input id="ct-q" type="number" value="3" oninput="calculateCrossTool()" class="w-full bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-indigo-400">
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-slate-400">s:</span>
+                                    <input id="ct-s" type="number" value="1" oninput="calculateCrossTool()" class="w-full bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-indigo-400">
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="calculateCrossTool()" class="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition text-xs">
+                            대각선 검증하기
+                        </button>
+                    </div>
+
+                    <div id="ct-result-box" class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 font-mono text-[11px]">
+                        <div class="text-slate-400 text-center">결과가 여기에 표시됩니다</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. REAL-TIME RANKING BOARD MODAL -->
+        <div id="ranking-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-slate-900 border border-amber-500/40 w-full max-w-md rounded-2xl p-5 shadow-2xl space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <h3 class="font-jua text-xl text-amber-400 flex items-center space-x-2">
+                        <i class="fa-solid fa-trophy"></i>
+                        <span>실시간 인수분해 명예의 전당</span>
+                    </h3>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="fetchLeaderboard()" class="text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-slate-700">
+                            <i class="fa-solid fa-rotate"></i>
+                        </button>
+                        <button onclick="closeRankingModal()" class="text-slate-400 hover:text-white text-lg">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-2.5 bg-amber-950/40 border border-amber-500/30 rounded-xl text-[11px] text-amber-200/90 leading-relaxed space-y-0.5">
+                    <div class="font-bold text-amber-300 flex items-center space-x-1">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>랭킹 점수 산정 방식</span>
+                    </div>
+                    <div>• <b>기본 점수:</b> 인수분해 정답 및 콤보(Combo) 가산점</div>
+                    <div>• <b>성장 보너스:</b> 용사의 레벨이 높을수록 추가 점수 합산 <span class="text-emerald-400 font-bold">(Lv.당 +200점)</span></div>
+                    <div>• 쉬운 스테이지에서 경험치를 쌓아 레벨을 올려도 상위 랭크 가능!</div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="text-xs text-slate-400 flex justify-between px-2 font-semibold">
+                        <span>순위 / 용사 정보</span>
+                        <span>최종 점수</span>
+                    </div>
+                    <div id="ranking-list-container" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        <div class="text-center py-6 text-slate-500 text-xs">랭킹 데이터를 불러오는 중...</div>
+                    </div>
+                </div>
+
+                <button onclick="closeRankingModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Sound Synth & Game Logic -->
+    <script>
+        class RetroAudio {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playTone(freq, duration, type = 'sine', volume = 0.1) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+            playSpell() {
+                this.playTone(523.25, 0.1, 'sine', 0.15);
+                setTimeout(() => this.playTone(659.25, 0.1, 'sine', 0.15), 80);
+                setTimeout(() => this.playTone(783.99, 0.2, 'triangle', 0.2), 160);
+            }
+            playCorrect() {
+                this.playTone(587.33, 0.1, 'sine', 0.15);
+                setTimeout(() => this.playTone(880, 0.25, 'sine', 0.2), 100);
+            }
+            playWrong() {
+                this.playTone(220, 0.15, 'sawtooth', 0.2);
+                setTimeout(() => this.playTone(164.81, 0.25, 'sawtooth', 0.2), 120);
+            }
+            playHit() {
+                this.playTone(120, 0.2, 'square', 0.25);
+            }
+            playVictory() {
+                this.playTone(523.25, 0.12, 'triangle', 0.2);
+                setTimeout(() => this.playTone(659.25, 0.12, 'triangle', 0.2), 120);
+                setTimeout(() => this.playTone(783.99, 0.12, 'triangle', 0.2), 240);
+                setTimeout(() => this.playTone(1046.50, 0.3, 'sine', 0.25), 360);
+            }
+        }
+        const sound = new RetroAudio();
+        function toggleAudio() {
+            sound.enabled = !sound.enabled;
+            const btn = document.getElementById('audio-btn');
+            if (sound.enabled) {
+                btn.innerHTML = `<i class="fa-solid fa-volume-high text-violet-400"></i><span class="hidden sm:inline">음량</span>`;
+            } else {
+                btn.innerHTML = `<i class="fa-solid fa-volume-xmark text-slate-500"></i><span class="hidden sm:inline">음소거</span>`;
+            }
+        }
+    </script>
+
+    <!-- Google Sheet Real-time Leaderboard Script (Dual Fetch + JSONP Robust Engine) -->
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbygXDFksc7tgy6qu1Q5MN59nLGtEzMRg_HLQy7Hy5-GgcU3f1NLzOEOX2ScE9kjzZ0OOg/exec";
+
+        window.saveScoreToLeaderboard = function(name, score, rankTitle, maxCombo, heroLevel, stageReached) {
+            const totalScore = (score || 0) + ((heroLevel || 1) * 200);
+            const formData = new URLSearchParams();
+            formData.append("name", name || "인수분해용사");
+            formData.append("score", totalScore);
+            formData.append("heroLevel", heroLevel || 1);
+            formData.append("rankTitle", rankTitle || "인수분해 수련생");
+            formData.append("stageReached", stageReached || "Stage 1");
+            formData.append("maxCombo", maxCombo || 0);
+
+            fetch(API_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("실시간 점수 동기화 완료");
+            }).catch(e => console.log("전송 로그:", e));
+        };
+
+        window.fetchLeaderboard = function() {
+            const container = document.getElementById('ranking-list-container');
+            if (container) {
+                container.innerHTML = `<div class="text-center py-6 text-amber-300 text-xs animate-pulse">실시간 랭킹 데이터를 갱신하는 중... ⏳</div>`;
+            }
+
+            let loaded = false;
+
+            // 1차 시도: Direct Fetch
+            fetch(`${API_URL}?_t=${Date.now()}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!loaded) {
+                        loaded = true;
+                        window.renderRankingList(data);
+                    }
+                })
+                .catch(() => {
+                    // 2차 시도: JSONP fallback
+                    if (loaded) return;
+                    const script = document.createElement('script');
+                    const callbackName = 'handleRankData_' + Date.now();
+
+                    const timeoutTimer = setTimeout(() => {
+                        if (!loaded) {
+                            loaded = true;
+                            if (container) container.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">아직 등록된 랭킹이 없습니다. 첫 번째 랭커가 되어보세요!</div>`;
+                            delete window[callbackName];
+                            if (script.parentNode) document.body.removeChild(script);
+                        }
+                    }, 4000);
+
+                    window[callbackName] = function(rankList) {
+                        if (!loaded) {
+                            loaded = true;
+                            clearTimeout(timeoutTimer);
+                            window.renderRankingList(rankList);
+                        }
+                        delete window[callbackName];
+                        if (script.parentNode) document.body.removeChild(script);
+                    };
+
+                    script.src = `${API_URL}?callback=${callbackName}&_t=${Date.now()}`;
+                    script.onerror = function() {
+                        if (!loaded) {
+                            loaded = true;
+                            clearTimeout(timeoutTimer);
+                            if (container) container.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">아직 등록된 랭킹이 없습니다. 첫 번째 랭커가 되어보세요!</div>`;
+                        }
+                        delete window[callbackName];
+                        if (script.parentNode) document.body.removeChild(script);
+                    };
+                    document.body.appendChild(script);
+                });
+        };
+
+        window.renderRankingList = function(rankList) {
+            const container = document.getElementById('ranking-list-container');
+            if (!container) return;
+
+            if (!rankList || rankList.length === 0) {
+                container.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">아직 등록된 랭킹이 없습니다. 첫 번째 랭커가 되어보세요!</div>`;
+                return;
+            }
+
+            container.innerHTML = rankList.map((item, idx) => {
+                let badgeColor = "bg-slate-800 text-slate-400";
+                if (idx === 0) badgeColor = "bg-amber-500 text-slate-950 font-extrabold";
+                else if (idx === 1) badgeColor = "bg-slate-300 text-slate-950 font-bold";
+                else if (idx === 2) badgeColor = "bg-amber-700 text-amber-100 font-bold";
+
+                const levelText = item.heroLevel ? `Lv.${item.heroLevel}` : 'Lv.1';
+                const stageText = item.stageReached || 'Stage 1';
+
+                return `
+                    <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700 flex justify-between items-center text-xs">
+                        <div class="flex items-center space-x-2.5">
+                            <span class="w-6 h-6 rounded-lg ${badgeColor} flex items-center justify-center font-mono text-[11px]">${idx + 1}</span>
+                            <div>
+                                <div class="font-bold text-slate-200 flex items-center space-x-1.5">
+                                    <span>${escapeHtml(item.name)}</span>
+                                    <span class="text-[10px] px-1.5 py-0.2 bg-violet-950 text-violet-300 rounded border border-violet-800/80 font-mono">${levelText}</span>
+                                </div>
+                                <div class="text-[10px] text-amber-400">${escapeHtml(item.rankTitle)} • <span class="text-slate-400">${stageText}</span></div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold text-amber-300 text-sm font-mono">${(Number(item.score) || 0).toLocaleString()} 점</div>
+                            <div class="text-[9px] text-slate-400">${item.maxCombo || 0} Combo</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+
+    <script>
+        let player = {
+            name: "인수분해용사",
+            level: 1,
+            maxHp: 100,
+            hp: 100,
+            atk: 40,
+            gold: 50,
+            xp: 0,
+            maxXp: 100,
+            criticalBuff: false
+        };
+
+        let currentStageIdx = 0;
+        let currentFloor = 1;
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let selectedCards = [];
+        let currentQuestion = null;
+        let currentMonster = null;
+
+        function gcd(a, b) {
+            a = Math.abs(a);
+            b = Math.abs(b);
+            while (b) {
+                let t = b;
+                b = a % b;
+                a = t;
+            }
+            return a || 1;
+        }
+
+        const STAGE_TITLES = [
+            "공통인수 묶기 던전",
+            "완전제곱식 던전",
+            "합차 공식 던전",
+            "이차식 기본 던전",
+            "대각선 멜빵법 마왕 던전"
+        ];
+
+        const MONSTER_ROSTER = [
+            // Stage 1
+            [
+                { name: "말랑 슬라임", avatar: "🟢", hp: 60, atk: 10 },
+                { name: "파란 슬라임", avatar: "🔵", hp: 80, atk: 12 },
+                { name: "킹 슬라임", avatar: "👑", hp: 110, atk: 15 },
+                { name: "슬라임 보스", avatar: "👹", hp: 160, shield: 40, atk: 20, skill: "점액 튀기기" }
+            ],
+            // Stage 2
+            [
+                { name: "아기 고블린", avatar: "👺", hp: 100, atk: 15 },
+                { name: "고블린 전사", avatar: "🧌", hp: 130, atk: 18 },
+                { name: "고블린 주술사", avatar: "🧙‍♀️", hp: 160, atk: 22 },
+                { name: "고블린 족장", avatar: "👹", hp: 220, shield: 60, atk: 28, skill: "몽둥이 난타" }
+            ],
+            // Stage 3
+            [
+                { name: "바위 골렘", avatar: "🗿", hp: 150, shield: 30, atk: 20 },
+                { name: "강철 골렘", avatar: "🤖", hp: 190, shield: 50, atk: 25 },
+                { name: "용암 골렘", avatar: "🔥", hp: 230, shield: 70, atk: 30 },
+                { name: "다이아몬드 골렘", avatar: "💎", hp: 320, shield: 100, atk: 38, skill: "낙석 내리치기" }
+            ],
+            // Stage 4
+            [
+                { name: "아기 드래곤", avatar: "🐉", hp: 200, shield: 40, atk: 28 },
+                { name: "화염 드래곤", avatar: "🐲", hp: 260, shield: 70, atk: 34 },
+                { name: "암흑 드래곤", avatar: "🖤", hp: 320, shield: 90, atk: 40 },
+                { name: "고대 레드 드래곤", avatar: "🔥", hp: 420, shield: 130, atk: 48, skill: "드래곤 브레스" }
+            ],
+            // Stage 5
+            [
+                { name: "마왕군 간부", avatar: "👿", hp: 300, shield: 80, atk: 38 },
+                { name: "마왕군 수장", avatar: "💀", hp: 380, shield: 110, atk: 45 },
+                { name: "타락한 용사", avatar: "🗡️", hp: 460, shield: 140, atk: 52 },
+                { name: "인수분해 마왕", avatar: "😈", hp: 650, shield: 180, atk: 65, skill: "인수분해 파멸포" }
+            ]
+        ];
+
+        function updateStartScreenHeroInfo() {
+            const nameInput = document.getElementById('nickname-input');
+            if (nameInput) player.name = nameInput.value.trim() || "인수분해용사";
+
+            document.getElementById('hero-display-name').innerText = player.name;
+            document.getElementById('start-hero-lv').innerText = `Lv.${player.level} 용사`;
+            document.getElementById('start-hero-hp').innerText = `${player.hp} / ${player.maxHp}`;
+            document.getElementById('start-hero-atk').innerText = player.atk;
+            document.getElementById('start-hero-gold').innerText = `${player.gold} Gold`;
+        }
+
+        function resetHeroAndStart() {
+            player = {
+                name: document.getElementById('nickname-input').value.trim() || "인수분해용사",
+                level: 1,
+                maxHp: 100,
+                hp: 100,
+                atk: 40,
+                gold: 50,
+                xp: 0,
+                maxXp: 100,
+                criticalBuff: false
+            };
+            updateStartScreenHeroInfo();
+            logMessage(`🔄 용사의 상태가 초기화되었습니다.`);
+        }
+
+        function selectStageAndStart(stageIdx) {
+            const nameInput = document.getElementById('nickname-input');
+            player.name = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : "인수분해용사";
+
+            currentStageIdx = stageIdx;
+            currentFloor = 1;
+            
+            if (player.hp < player.maxHp * 0.3) {
+                player.hp = Math.floor(player.maxHp * 0.5);
+            }
+
+            document.getElementById('hero-display-name').innerText = player.name;
+            document.getElementById('hero-stage-name').innerText = player.name;
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('player-quick-stats').classList.remove('hidden');
+            document.getElementById('retreat-btn').classList.remove('hidden');
+
+            updatePlayerUI();
+            loadFloor();
+            logMessage(`⚔️ Lv.${player.level} ${player.name} 용사가 [Stage ${stageIdx + 1}] 던전에 입장했습니다!`);
+        }
+
+        function retreatToMenu() {
+            const stageText = `Stage ${currentStageIdx + 1} (${currentStageIdx + 1}-${currentFloor}층)`;
+            let rank = getRankTitle(score, player.level);
+            if (window.saveScoreToLeaderboard) {
+                window.saveScoreToLeaderboard(player.name, score, rank, maxCombo, player.level, stageText);
+            }
+
+            goHome();
+            updateStartScreenHeroInfo();
+            logMessage(`🏃‍♂️ 마을로 안전하게 후퇴했습니다. (점수가 랭킹에 기록되었습니다!)`);
+        }
+
+        function goHome() {
+            document.getElementById('start-screen').classList.remove('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('player-quick-stats').classList.add('hidden');
+            document.getElementById('retreat-btn').classList.add('hidden');
+            document.getElementById('defeat-modal').classList.add('hidden');
+            document.getElementById('result-modal').classList.add('hidden');
+            updateStartScreenHeroInfo();
+        }
+
+        function restartGame() {
+            document.getElementById('defeat-modal').classList.add('hidden');
+            document.getElementById('result-modal').classList.add('hidden');
+            selectStageAndStart(currentStageIdx);
+        }
+
+        function getRankTitle(s, lv) {
+            if (s >= 2000 || lv >= 10) return "인수분해 신화의 대마법사 🧙‍♂️";
+            if (s >= 1200 || lv >= 5) return "인수분해 베테랑 헌터 ⚔️";
+            if (s >= 600 || lv >= 3) return "인수분해 모험가 🛡️";
+            return "인수분해 수련생";
+        }
+
+        function generateMathQuestion(stageIdx) {
+            let expr = "", correct = [], options = [], coeffs = null;
+            const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+            if (stageIdx === 0) {
+                const m = getRandomInt(2, 12);
+                let a = getRandomInt(1, 4);
+                let b = getRandomInt(1, 6);
+
+                while (gcd(a, b) !== 1) {
+                    b = getRandomInt(1, 6);
+                }
+
+                const term1 = a === 1 ? `${m}x²` : `${m * a}x²`;
+                const term2 = `${m * b}x`;
+                expr = `${term1} + ${term2}`;
+
+                const factor1 = `${m}x`;
+                const factor2 = a === 1 ? `(x + ${b})` : `(${a}x + ${b})`;
+
+                correct = [factor1, factor2];
+
+                const trapM = Math.floor(m / 2) >= 2 ? Math.floor(m / 2) : 2;
+                const trapFactor1 = `${trapM}x`;
+                const trapFactor2 = a === 1 ? `(${(m/trapM)}x + ${(m*b)/trapM})` : `(${(m*a)/trapM}x + ${(m*b)/trapM})`;
+
+                options = [
+                    factor1, factor2,
+                    trapFactor1, trapFactor2,
+                    `${m}x²`, `(${a + 1}x + ${b})`,
+                    `(x + ${b + 1})`, `${m + 1}x`
+                ];
+            } else if (stageIdx === 1) {
+                const isPlus = Math.random() > 0.5;
+                const a = getRandomInt(1, 7);
+                const twoA = 2 * a;
+                const aSq = a * a;
+
+                const sign = isPlus ? '+' : '-';
+                expr = `x² ${sign} ${twoA}x + ${aSq}`;
+
+                const factor = isPlus ? `(x + ${a})` : `(x - ${a})`;
+                correct = [factor, factor];
+                options = [
+                    `(x + ${a})`, `(x - ${a})`,
+                    `(x + ${twoA})`, `(x - ${twoA})`,
+                    `(x + ${aSq})`, `(x² + ${a})`, `(2x + ${a})`, `(x + 1)`
+                ];
+            } else if (stageIdx === 2) {
+                let a = getRandomInt(1, 3);
+                let b = getRandomInt(1, 8);
+                while (gcd(a, b) !== 1) {
+                    b = getRandomInt(1, 8);
+                }
+                const aSq = a * a;
+                const bSq = b * b;
+
+                const aStr = aSq === 1 ? 'x²' : `${aSq}x²`;
+                expr = `${aStr} - ${bSq}`;
+
+                const p1 = a === 1 ? `(x + ${b})` : `(${a}x + ${b})`;
+                const p2 = a === 1 ? `(x - ${b})` : `(${a}x - ${b})`;
+
+                correct = [p1, p2];
+                options = [
+                    p1, p2,
+                    a === 1 ? `(x + ${bSq})` : `(${a}x + ${bSq})`,
+                    a === 1 ? `(x - ${bSq})` : `(${a}x - ${bSq})`,
+                    `(x + ${b + 1})`, `(${a + 1}x - ${b})`, `(2x + ${b})`, `(x - 1)`
+                ];
+            } else if (stageIdx === 3) {
+                let m = getRandomInt(-6, 6); if (m === 0) m = 2;
+                let n = getRandomInt(-6, 6); if (n === 0) n = -3;
+                
+                const b = m + n;
+                const c = m * n;
+
+                const bStr = b >= 0 ? `+ ${b}x` : `- ${Math.abs(b)}x`;
+                const cStr = c >= 0 ? `+ ${c}` : `- ${Math.abs(c)}`;
+                expr = `x² ${bStr} ${cStr}`;
+
+                const f1 = m >= 0 ? `(x + ${m})` : `(x - ${Math.abs(m)})`;
+                const f2 = n >= 0 ? `(x + ${n})` : `(x - ${Math.abs(n)})`;
+
+                correct = [f1, f2];
+                options = [
+                    f1, f2,
+                    `(x + ${Math.abs(m) + 1})`, `(x - ${Math.abs(n) + 1})`,
+                    `(x + ${Math.abs(b)})`, `(x - ${Math.abs(c)})`, `(x + 1)`, `(x - 2)`
+                ];
+            } else {
+                let p = [1, 2, 3][getRandomInt(0, 2)];
+                let r = [1, 2][getRandomInt(0, 1)];
+                let q = getRandomInt(-4, 5); if (q === 0) q = 1;
+                let s = getRandomInt(-4, 5); if (s === 0) s = 2;
+
+                while (gcd(p, Math.abs(q)) !== 1) { q = getRandomInt(-4, 5); if (q === 0) q = 1; }
+                while (gcd(r, Math.abs(s)) !== 1) { s = getRandomInt(-4, 5); if (s === 0) s = 2; }
+
+                const a = p * r;
+                const b = p * s + q * r;
+                const c = q * s;
+
+                coeffs = { a, b, c };
+
+                const aStr = a === 1 ? 'x²' : `${a}x²`;
+                const bStr = b >= 0 ? `+ ${b}x` : `- ${Math.abs(b)}x`;
+                const cStr = c >= 0 ? `+ ${c}` : `- ${Math.abs(c)}`;
+
+                expr = `${aStr} ${bStr} ${cStr}`;
+
+                const pStr = p === 1 ? 'x' : `${p}x`;
+                const rStr = r === 1 ? 'x' : `${r}x`;
+                const qStr = q >= 0 ? `+ ${q}` : `- ${Math.abs(q)}`;
+                const sStr = s >= 0 ? `+ ${s}` : `- ${Math.abs(s)}`;
+
+                const factor1 = `(${pStr} ${qStr})`;
+                const factor2 = `(${rStr} ${sStr})`;
+
+                correct = [factor1, factor2];
+                options = [
+                    factor1, factor2,
+                    `(${pStr} ${sStr})`, `(${rStr} ${qStr})`,
+                    `(x + ${Math.abs(b)})`, `(${a}x + 1)`, `(x - ${Math.abs(c)})`, `(2x + 3)`
+                ];
+            }
+
+            options = [...new Set(options)];
+            while (options.length < 8) {
+                options.push(`(x + ${options.length + 1})`);
+            }
+            options.sort(() => Math.random() - 0.5);
+
+            return { expr, correct, options, coeffs };
+        }
+
+        function loadFloor() {
+            const monsterData = MONSTER_ROSTER[currentStageIdx][currentFloor - 1];
+            currentMonster = {
+                name: monsterData.name,
+                avatar: monsterData.avatar,
+                maxHp: monsterData.hp,
+                hp: monsterData.hp,
+                atk: monsterData.atk,
+                shield: monsterData.shield || 0,
+                maxShield: monsterData.shield || 0,
+                isEnraged: false,
+                skill: monsterData.skill || ""
+            };
+
+            document.getElementById('stage-badge').innerText = `Stage ${currentStageIdx + 1}`;
+            document.getElementById('floor-badge').innerText = `${currentStageIdx + 1}-${currentFloor}층`;
+            document.getElementById('stage-title').innerText = STAGE_TITLES[currentStageIdx];
+            document.getElementById('monster-name').innerText = currentMonster.name;
+            document.getElementById('monster-avatar').innerText = currentMonster.avatar;
+            document.getElementById('monster-type-tag').innerText = (currentFloor === 4) ? 'BOSS' : 'MOB';
+
+            const rageBadge = document.getElementById('monster-rage-badge');
+            if (rageBadge) rageBadge.classList.add('hidden');
+            const cardBox = document.getElementById('monster-card-box');
+            if (cardBox) cardBox.classList.remove('animate-rage', 'border-red-600');
+
+            updateMonsterUI();
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            currentQuestion = generateMathQuestion(currentStageIdx);
+
+            document.getElementById('question-expression').innerText = currentQuestion.expr;
+            document.getElementById('score-val').innerText = score.toLocaleString();
+            document.getElementById('combo-count').innerText = `${combo} Combo`;
+
+            const calcBanner = document.getElementById('stage5-calc-banner');
+            if (currentStageIdx === 4) {
+                calcBanner.classList.remove('hidden');
+            } else {
+                calcBanner.classList.add('hidden');
+            }
+
+            selectedCards = [];
+            renderSelectedCards();
+            renderCardOptions(currentQuestion.options);
+        }
+
+        function renderCardOptions(options) {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = options.map(opt => `
+                <button onclick="selectCard('${opt.replace(/'/g, "\\'")}', this)" class="factor-card bg-slate-800 hover:bg-slate-700/80 border border-slate-700/80 p-3 rounded-xl font-mono text-sm font-bold text-amber-300 transition duration-150 flex items-center justify-center space-x-1 shadow">
+                    <span>${opt}</span>
+                </button>
+            `).join('');
+        }
+
+        function selectCard(cardText, element) {
+            if (selectedCards.includes(cardText)) {
+                selectedCards = selectedCards.filter(c => c !== cardText);
+                element.classList.remove('card-selected');
+            } else {
+                if (selectedCards.length >= 2) return;
+                selectedCards.push(cardText);
+                element.classList.add('card-selected');
+            }
+            renderSelectedCards();
+        }
+
+        function clearSelectedCards() {
+            selectedCards = [];
+            document.querySelectorAll('.factor-card').forEach(el => el.classList.remove('card-selected'));
+            renderSelectedCards();
+        }
+
+        function renderSelectedCards() {
+            const display = document.getElementById('selected-cards-display');
+            const attackBtn = document.getElementById('attack-btn');
+
+            if (selectedCards.length === 0) {
+                display.innerHTML = `<span class="text-slate-500 text-xs italic">보기의 카드를 클릭하여 2개 선택하세요</span>`;
+                attackBtn.disabled = true;
+            } else {
+                display.innerHTML = selectedCards.map(c => `
+                    <span class="px-3 py-1 bg-violet-900/80 border border-violet-500 text-amber-300 font-mono text-xs font-bold rounded-lg shadow animate-pulse">${c}</span>
+                `).join('<span class="text-slate-400 text-xs">×</span>');
+                attackBtn.disabled = selectedCards.length !== 2;
+            }
+        }
+
+        function submitAttack() {
+            if (selectedCards.length !== 2 || !currentQuestion) return;
+
+            const [c1, c2] = selectedCards;
+            const [target1, target2] = currentQuestion.correct;
+            const isCorrect = (c1 === target1 && c2 === target2) || (c1 === target2 && c2 === target1);
+
+            if (isCorrect) {
+                handleCorrectAnswer();
+            } else {
+                handleWrongAnswer();
+            }
+        }
+
+        function handleCorrectAnswer() {
+            sound.playSpell();
+            
+            const heroSprite = document.getElementById('hero-sprite');
+            heroSprite.classList.add('animate-hero-cast');
+            setTimeout(() => heroSprite.classList.remove('animate-hero-cast'), 400);
+
+            const spellProj = document.getElementById('spell-projectile');
+            spellProj.classList.remove('hidden');
+            spellProj.classList.add('animate-spell');
+
+            setTimeout(() => {
+                spellProj.classList.add('hidden');
+                spellProj.classList.remove('animate-spell');
+
+                sound.playCorrect();
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+
+                let damage = player.atk + (combo * 5);
+                let isCrit = false;
+                if (player.criticalBuff) {
+                    damage *= 2;
+                    isCrit = true;
+                    player.criticalBuff = false;
+                    document.getElementById('player-buff-icon').classList.add('hidden');
+                    document.getElementById('player-buff-aura').classList.add('hidden');
+                    logMessage(`⚡ [크리티컬 마법 적용] 2배의 강렬한 피해를 입혔습니다!`);
+                }
+
+                let mainDmg = damage;
+                let shieldAbsorbed = 0;
+                if (currentMonster.shield > 0) {
+                    if (currentMonster.shield >= mainDmg) {
+                        currentMonster.shield -= mainDmg;
+                        shieldAbsorbed = mainDmg;
+                        mainDmg = 0;
+                    } else {
+                        shieldAbsorbed = currentMonster.shield;
+                        mainDmg -= currentMonster.shield;
+                        currentMonster.shield = 0;
+                    }
+                }
+
+                currentMonster.hp = Math.max(0, currentMonster.hp - mainDmg);
+
+                if (currentFloor === 4 && !currentMonster.isEnraged && currentMonster.hp <= (currentMonster.maxHp * 0.5)) {
+                    currentMonster.isEnraged = true;
+                    currentMonster.atk = Math.floor(currentMonster.atk * 1.5);
+                    document.getElementById('monster-rage-badge').classList.remove('hidden');
+                    document.getElementById('monster-card-box').classList.add('animate-rage', 'border-red-600');
+                    logMessage(`🔥 [경고!] ${currentMonster.name}이(가) 광폭화했습니다! 공격력이 1.5배로 상승합니다!`);
+                }
+
+                const gainedGold = 10 + (combo * 2);
+                const gainedScore = 100 + (combo * 20);
+                const gainedXp = 25;
+
+                player.gold += gainedGold;
+                score += gainedScore;
+                player.xp += gainedXp;
+
+                const monsterElem = document.getElementById('monster-container');
+                monsterElem.classList.add('animate-shake');
+                setTimeout(() => monsterElem.classList.remove('animate-shake'), 400);
+
+                const dmgText = shieldAbsorbed > 0 
+                    ? (mainDmg > 0 ? `🛡️-${shieldAbsorbed} / -${mainDmg}` : `🛡️-${shieldAbsorbed}`)
+                    : (isCrit ? `⚡-${damage} CRITICAL!` : `-${damage}`);
+
+                showFloatingDamage('monster', dmgText, isCrit ? 'text-amber-400 font-extrabold text-2xl' : 'text-red-400 font-bold text-xl');
+                logMessage(`⚔️ 인수분해 마법 발사! ${currentMonster.name}에게 ${damage} 피해! (+${gainedGold}G)`);
+
+                updateMonsterUI();
+                updatePlayerUI();
+                checkLevelUp(); // 레벨업 시 랭킹 자동 전송
+
+                if (currentMonster.hp <= 0) {
+                    handleFloorClear();
+                } else {
+                    setTimeout(loadQuestion, 600);
+                }
+            }, 350);
+        }
+
+        function handleWrongAnswer() {
+            sound.playWrong();
+            combo = 0;
+
+            const monsterElem = document.getElementById('monster-container');
+            monsterElem.classList.add('animate-monster-lunge');
+            setTimeout(() => monsterElem.classList.remove('animate-monster-lunge'), 450);
+
+            const slash = document.getElementById('slash-effect');
+            slash.classList.remove('hidden');
+            setTimeout(() => slash.classList.add('hidden'), 350);
+
+            setTimeout(() => {
+                sound.playHit();
+                let monsterAtk = currentMonster.atk;
+                let attackMsg = "";
+
+                if (currentFloor === 4 && currentMonster.skill) {
+                    monsterAtk = Math.floor(monsterAtk * 1.2);
+                    attackMsg = `💥 [보스 필살기 발동!] ${currentMonster.name}의 『${currentMonster.skill}』! (-${monsterAtk} HP)`;
+                } else {
+                    attackMsg = `❌ 주문이 맞지 않습니다! ${currentMonster.name}의 반격! (-${monsterAtk} HP)`;
+                }
+
+                player.hp = Math.max(0, player.hp - monsterAtk);
+                if (currentStageIdx >= 3 && player.gold >= 10) {
+                    player.gold -= 10;
+                    attackMsg += ` (10G 손실!)`;
+                }
+
+                const battleBox = document.getElementById('battle-box');
+                battleBox.classList.add('animate-shake');
+                setTimeout(() => battleBox.classList.remove('animate-shake'), 400);
+
+                showFloatingDamage('hero', `-${monsterAtk} HP`, 'text-red-500 font-extrabold text-xl');
+                logMessage(attackMsg);
+                updatePlayerUI();
+
+                if (player.hp <= 0) {
+                    handleGameOver();
+                } else {
+                    clearSelectedCards();
+                }
+            }, 200);
+        }
+
+        function handleFloorClear() {
+            sound.playVictory();
+            score += 200 + (currentStageIdx * 100);
+            logMessage(`🎉 ${currentMonster.name} 퇴치 성공! 다음 층으로 이동합니다.`);
+
+            setTimeout(() => {
+                currentFloor++;
+                if (currentFloor > 4) {
+                    if (currentStageIdx < 4) {
+                        currentStageIdx++;
+                        currentFloor = 1;
+                        logMessage(`🌟 스테이지 클리어! Stage ${currentStageIdx + 1}로 진입합니다!`);
+                        loadFloor();
+                    } else {
+                        showGameResult(true);
+                    }
+                } else {
+                    loadFloor();
+                }
+            }, 1000);
+        }
+
+        function updateMonsterUI() {
+            document.getElementById('monster-hp-text').innerText = `HP: ${currentMonster.hp}/${currentMonster.maxHp}`;
+            const hpPercent = Math.max(0, Math.min(100, (currentMonster.hp / currentMonster.maxHp) * 100));
+            document.getElementById('monster-hp-bar').style.width = `${hpPercent}%`;
+
+            const shieldContainer = document.getElementById('monster-shield-container');
+            const shieldText = document.getElementById('monster-shield-text');
+            const shieldBar = document.getElementById('monster-shield-bar');
+
+            if (currentMonster.maxShield > 0 && shieldContainer && shieldText && shieldBar) {
+                if (currentMonster.shield > 0) {
+                    shieldContainer.classList.remove('hidden');
+                    shieldText.classList.remove('hidden');
+                    shieldText.innerText = `🛡️${currentMonster.shield}`;
+                    const shieldPercent = Math.max(0, Math.min(100, (currentMonster.shield / currentMonster.maxShield) * 100));
+                    shieldBar.style.width = `${shieldPercent}%`;
+                } else {
+                    shieldContainer.classList.add('hidden');
+                    shieldText.innerText = `🛡️0`;
+                    shieldText.classList.add('hidden');
+                }
+            } else if (shieldContainer) {
+                shieldContainer.classList.add('hidden');
+                if (shieldText) shieldText.classList.add('hidden');
+            }
+        }
+
+        function updatePlayerUI() {
+            document.getElementById('header-player-lv').innerText = player.level;
+            document.getElementById('header-gold').innerText = player.gold;
+            document.getElementById('header-hp-text').innerText = `${player.hp}/${player.maxHp}`;
+            document.getElementById('hero-lv-text').innerText = `Lv.${player.level}`;
+            document.getElementById('player-hp-text').innerText = `${player.hp}/${player.maxHp}`;
+
+            const hpPercent = Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100));
+            document.getElementById('header-hp-bar').style.width = `${hpPercent}%`;
+            document.getElementById('player-hp-bar').style.width = `${hpPercent}%`;
+        }
+
+        // 레벨업 시 즉시 서버로 실시간 점수 전송
+        function checkLevelUp() {
+            if (player.xp >= player.maxXp) {
+                player.level++;
+                player.xp -= player.maxXp;
+                player.maxXp = Math.floor(player.maxXp * 1.3);
+                player.maxHp += 20;
+                player.hp = player.maxHp;
+                player.atk += 10;
+
+                const lvlModal = document.getElementById('levelup-modal');
+                lvlModal.classList.remove('hidden');
+                setTimeout(() => lvlModal.classList.add('hidden'), 1200);
+
+                logMessage(`🌟 LEVEL UP! 용사의 레벨이 Lv.${player.level}로 상승했습니다!`);
+
+                const stageText = `Stage ${currentStageIdx + 1} (${currentStageIdx + 1}-${currentFloor}층)`;
+                let rank = getRankTitle(score, player.level);
+                if (window.saveScoreToLeaderboard) {
+                    window.saveScoreToLeaderboard(player.name, score, rank, maxCombo, player.level, stageText);
+                }
+            }
+        }
+
+        function showFloatingDamage(target, text, styleClass) {
+            const containerId = (target === 'hero') ? 'hero-floating-dmg' : 'monster-floating-dmg';
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<span class="font-jua inline-block drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] ${styleClass} animate-dmg-float">${text}</span>`;
+            setTimeout(() => { container.innerHTML = ''; }, 950);
+        }
+
+        function logMessage(msg) {
+            const logBox = document.getElementById('battle-log');
+            logBox.innerText = msg;
+        }
+
+        function handleGameOver() {
+            document.getElementById('defeat-floor').innerText = `Stage ${currentStageIdx + 1} (${currentStageIdx + 1}-${currentFloor}층)`;
+            document.getElementById('defeat-score').innerText = `${score.toLocaleString()} 점`;
+            document.getElementById('defeat-modal').classList.remove('hidden');
+
+            const stageText = `Stage ${currentStageIdx + 1} (${currentStageIdx + 1}-${currentFloor}층)`;
+            let rank = getRankTitle(score, player.level);
+
+            if (window.saveScoreToLeaderboard) {
+                window.saveScoreToLeaderboard(player.name, score, rank, maxCombo, player.level, stageText);
+            }
+        }
+
+        function showGameResult(victory = true) {
+            document.getElementById('res-score').innerText = `${score.toLocaleString()} 점 (+Lv.${player.level} 보너스)`;
+            document.getElementById('res-combo').innerText = `${maxCombo} 회`;
+
+            let rank = getRankTitle(score, player.level);
+            document.getElementById('res-rank').innerText = rank;
+            document.getElementById('result-modal').classList.remove('hidden');
+
+            const stageText = `Stage ${currentStageIdx + 1} (${currentStageIdx + 1}-${currentFloor}층)`;
+            if (window.saveScoreToLeaderboard) {
+                window.saveScoreToLeaderboard(player.name, score, rank, maxCombo, player.level, stageText);
+            }
+        }
+
+        function usePotion() {
+            if (player.gold < 30) {
+                logMessage(`⚠️ 골드가 부족합니다! (필요: 30G)`);
+                return;
+            }
+            player.gold -= 30;
+            player.hp = Math.min(player.maxHp, player.hp + 50);
+            updatePlayerUI();
+            showFloatingDamage('hero', `+50 HP`, 'text-emerald-400 font-bold text-xl');
+            logMessage(`🧪 포션을 사용하여 HP 50을 회복했습니다!`);
+        }
+
+        function useHint() {
+            if (player.gold < 50) {
+                logMessage(`⚠️ 골드가 부족합니다! (필요: 50G)`);
+                return;
+            }
+            if (!currentQuestion) return;
+
+            player.gold -= 50;
+            updatePlayerUI();
+
+            const correctSet = new Set(currentQuestion.correct);
+            const cardButtons = document.querySelectorAll('.factor-card');
+            let removedCount = 0;
+
+            cardButtons.forEach(btn => {
+                const text = btn.innerText.trim();
+                if (!correctSet.has(text) && removedCount < 2 && btn.style.display !== 'none') {
+                    btn.style.display = 'none';
+                    removedCount++;
+                }
+            });
+
+            logMessage(`📜 힌트 주문서 사용! 잘못된 보기 카드 2개를 제거했습니다.`);
+        }
+
+        function useCritical() {
+            if (player.gold < 40) {
+                logMessage(`⚠️ 골드가 부족합니다! (필요: 40G)`);
+                return;
+            }
+            if (player.criticalBuff) {
+                logMessage(`⚠️ 이미 크리티컬 마법이 활성화되어 있습니다.`);
+                return;
+            }
+
+            player.gold -= 40;
+            player.criticalBuff = true;
+            document.getElementById('player-buff-icon').classList.remove('hidden');
+            document.getElementById('player-buff-aura').classList.remove('hidden');
+            updatePlayerUI();
+            logMessage(`⚡ 크리티컬 마법 발동! 다음 공격의 피해량이 2배로 증가합니다.`);
+        }
+
+        function openRankingModal() {
+            document.getElementById('ranking-modal').classList.remove('hidden');
+            if (window.fetchLeaderboard) {
+                window.fetchLeaderboard();
+            }
+        }
+
+        function closeRankingModal() {
+            document.getElementById('ranking-modal').classList.add('hidden');
+        }
+
+        function openGuideModal() {
+            document.getElementById('guide-modal').classList.remove('hidden');
+        }
+
+        function closeGuideModal() {
+            document.getElementById('guide-modal').classList.add('hidden');
+        }
+
+        function openCrossToolModal() {
+            const autoNotice = document.getElementById('ct-auto-notice');
+            if (typeof currentQuestion !== 'undefined' && currentQuestion && currentQuestion.coeffs) {
+                document.getElementById('ct-a').value = currentQuestion.coeffs.a;
+                document.getElementById('ct-b').value = currentQuestion.coeffs.b;
+                document.getElementById('ct-c').value = currentQuestion.coeffs.c;
+                autoNotice.classList.remove('hidden');
+            } else {
+                autoNotice.classList.add('hidden');
+            }
+
+            document.getElementById('crosstool-modal').classList.remove('hidden');
+            calculateCrossTool();
+        }
+
+        function closeCrossToolModal() {
+            document.getElementById('crosstool-modal').classList.add('hidden');
+        }
+
+        window.calculateCrossTool = function() {
+            const a = parseFloat(document.getElementById('ct-a').value) || 0;
+            const b = parseFloat(document.getElementById('ct-b').value) || 0;
+            const c = parseFloat(document.getElementById('ct-c').value) || 0;
+
+            const p = parseFloat(document.getElementById('ct-p').value) || 0;
+            const r = parseFloat(document.getElementById('ct-r').value) || 0;
+            const q = parseFloat(document.getElementById('ct-q').value) || 0;
+            const s = parseFloat(document.getElementById('ct-s').value) || 0;
+
+            const calcA = p * r;
+            const calcC = q * s;
+            const calcB = (p * s) + (q * r);
+
+            const resultBox = document.getElementById('ct-result-box');
+            if (!resultBox) return;
+
+            const isAMatch = (calcA === a);
+            const isBMatch = (calcB === b);
+            const isCMatch = (calcC === c);
+            const isSuccess = isAMatch && isBMatch && isCMatch;
+
+            const pStr = p === 1 ? 'x' : (p === -1 ? '-x' : `${p}x`);
+            const rStr = r === 1 ? 'x' : (r === -1 ? '-x' : `${r}x`);
+            const qStr = q >= 0 ? `+ ${q}` : `- ${Math.abs(q)}`;
+            const sStr = s >= 0 ? `+ ${s}` : `- ${Math.abs(s)}`;
+
+            let html = `
+                <div class="space-y-1.5 text-[11px] font-mono">
+                    <div class="flex justify-between items-center bg-slate-900 p-1.5 rounded border ${isAMatch ? 'border-emerald-500/50 text-emerald-300' : 'border-red-500/50 text-red-300'}">
+                        <span>x² 계수 (p × r): ${p} × ${r} = ${calcA}</span>
+                        <span>${isAMatch ? '✅ 일치 (목표: ' + a + ')' : '❌ 불일치 (목표: ' + a + ')'}</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900 p-1.5 rounded border ${isCMatch ? 'border-emerald-500/50 text-emerald-300' : 'border-red-500/50 text-red-300'}">
+                        <span>상수항 (q × s): ${q} × ${s} = ${calcC}</span>
+                        <span>${isCMatch ? '✅ 일치 (목표: ' + c + ')' : '❌ 불일치 (목표: ' + c + ')'}</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900 p-1.5 rounded border ${isBMatch ? 'border-emerald-500/50 text-emerald-300' : 'border-red-500/50 text-red-300'}">
+                        <span>x 계수 (ps + qr): (${p}×${s}) + (${q}×${r}) = ${calcB}</span>
+                        <span>${isBMatch ? '✅ 일치 (목표: ' + b + ')' : '❌ 불일치 (목표: ' + b + ')'}</span>
+                    </div>
+                    <div class="mt-2 text-center p-2 rounded font-bold text-xs ${isSuccess ? 'bg-emerald-950 border border-emerald-500 text-emerald-300' : 'bg-red-950/60 border border-red-500/40 text-red-300'}">
+                        ${isSuccess 
+                            ? `🎉 인수분해 성공! ✨ (${pStr} ${qStr})(${rStr} ${sStr})`
+                            : `⚠️ 대각선 곱 계수가 맞지 않습니다. 조합을 다시 확인해보세요.`}
+                    </div>
+                </div>
+            `;
+            resultBox.innerHTML = html;
+        };
+
+        window.onload = function() {
+            updateStartScreenHeroInfo();
+        };
+    </script>
+</body>
+</html>
