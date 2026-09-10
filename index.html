@@ -242,7 +242,7 @@
                             <span class="text-[10px] px-1.5 py-0.5 bg-indigo-950 text-indigo-300 rounded border border-indigo-800">중급</span>
                         </div>
                         <div class="font-bold text-sm text-slate-200 group-hover:text-amber-300">완전제곱식</div>
-                        <div class="text-xs text-slate-400">(a ± b)²</div>
+                        <div class="text-xs text-slate-400">(a ± b)² = (a ± b)(a ± b)</div>
                     </button>
 
                     <button onclick="selectStageAndStart(2)" class="p-3 bg-slate-800/80 hover:bg-violet-900/50 hover:border-violet-500 rounded-xl border border-slate-700 transition group text-left">
@@ -437,7 +437,7 @@
             <!-- Answers Grid -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 md:p-4 shadow-xl space-y-3">
                 <div class="flex justify-between items-center text-xs text-slate-400">
-                    <span>보기에서 알맞은 인수 카드를 조합하세요:</span>
+                    <span>보기에서 알맞은 인수 카드 2개를 조합하세요 (완전제곱식은 같은 카드 2개 선택 가능):</span>
                     <button onclick="clearSelectedCards()" class="text-slate-400 hover:text-amber-400 text-xs flex items-center space-x-1">
                         <i class="fa-solid fa-rotate-right"></i>
                         <span>선택 취소</span>
@@ -553,10 +553,10 @@
                     <div class="bg-slate-800/70 p-3 rounded-xl border border-slate-700">
                         <span class="px-2 py-0.5 bg-violet-900/80 text-violet-300 font-bold rounded text-[10px]">STAGE 2</span>
                         <h4 class="font-bold text-sm text-amber-300 mt-1">완전제곱식</h4>
-                        <p class="text-slate-300 mt-0.5">양 끝 항이 제곱이고 가운데 항이 2 × a × b 형태일 때 적용합니다.</p>
+                        <p class="text-slate-300 mt-0.5">양 끝 항이 제곱이고 가운데 항이 2 × a × b 형태일 때 적용합니다. 동일한 식 2개의 곱으로 표현됩니다!</p>
                         <div class="bg-slate-950 p-2 rounded mt-2 font-mono text-emerald-400 text-center space-y-1">
-                            <div>a² + 2ab + b² = (a + b)²</div>
-                            <div>a² - 2ab + b² = (a - b)²</div>
+                            <div>a² + 2ab + b² = (a + b)² = (a + b)(a + b)</div>
+                            <div>a² - 2ab + b² = (a - b)² = (a - b)(a - b)</div>
                         </div>
                     </div>
 
@@ -804,7 +804,6 @@
 
             let loaded = false;
 
-            // 1차 시도: Direct Fetch
             fetch(`${API_URL}?_t=${Date.now()}`)
                 .then(res => res.json())
                 .then(data => {
@@ -814,7 +813,6 @@
                     }
                 })
                 .catch(() => {
-                    // 2차 시도: JSONP fallback
                     if (loaded) return;
                     const script = document.createElement('script');
                     const callbackName = 'handleRankData_' + Date.now();
@@ -915,7 +913,7 @@
         let score = 0;
         let combo = 0;
         let maxCombo = 0;
-        let selectedCards = [];
+        let selectedCardIds = []; // ID 기반 카드 선택 관리
         let currentQuestion = null;
         let currentMonster = null;
 
@@ -1062,10 +1060,11 @@
         }
 
         function generateMathQuestion(stageIdx) {
-            let expr = "", correct = [], options = [], coeffs = null;
+            let expr = "", correct = [], distractorCandidates = [], coeffs = null;
             const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
             if (stageIdx === 0) {
+                // 공통인수 묶기
                 const m = getRandomInt(2, 12);
                 let a = getRandomInt(1, 4);
                 let b = getRandomInt(1, 6);
@@ -1087,15 +1086,16 @@
                 const trapFactor1 = `${trapM}x`;
                 const trapFactor2 = a === 1 ? `(${(m/trapM)}x + ${(m*b)/trapM})` : `(${(m*a)/trapM}x + ${(m*b)/trapM})`;
 
-                options = [
-                    factor1, factor2,
+                distractorCandidates = [
                     trapFactor1, trapFactor2,
                     `${m}x²`, `(${a + 1}x + ${b})`,
-                    `(x + ${b + 1})`, `${m + 1}x`
+                    `(x + ${b + 1})`, `${m + 1}x`, `(2x + ${b})`, `${m}x`
                 ];
             } else if (stageIdx === 1) {
+                // 완전제곱식 (Stage 2: 핵심 수정 구간)
+                // (x ± a)² = (x ± a)(x ± a)
                 const isPlus = Math.random() > 0.5;
-                const a = getRandomInt(1, 7);
+                const a = getRandomInt(1, 8);
                 const twoA = 2 * a;
                 const aSq = a * a;
 
@@ -1103,13 +1103,25 @@
                 expr = `x² ${sign} ${twoA}x + ${aSq}`;
 
                 const factor = isPlus ? `(x + ${a})` : `(x - ${a})`;
+                const oppFactor = isPlus ? `(x - ${a})` : `(x + ${a})`;
+
+                // 정답은 동일한 식 2개!
                 correct = [factor, factor];
-                options = [
-                    `(x + ${a})`, `(x - ${a})`,
-                    `(x + ${twoA})`, `(x - ${twoA})`,
-                    `(x + ${aSq})`, `(x² + ${a})`, `(2x + ${a})`, `(x + 1)`
+
+                distractorCandidates = [
+                    oppFactor,
+                    `(x + ${twoA})`,
+                    `(x - ${twoA})`,
+                    `(x + ${aSq})`,
+                    `(x - ${aSq})`,
+                    `(2x + ${a})`,
+                    `(2x - ${a})`,
+                    `(x + 1)`,
+                    `(x - 1)`,
+                    `(x + ${a + 2})`
                 ];
             } else if (stageIdx === 2) {
+                // 합차 공식
                 let a = getRandomInt(1, 3);
                 let b = getRandomInt(1, 8);
                 while (gcd(a, b) !== 1) {
@@ -1125,13 +1137,13 @@
                 const p2 = a === 1 ? `(x - ${b})` : `(${a}x - ${b})`;
 
                 correct = [p1, p2];
-                options = [
-                    p1, p2,
+                distractorCandidates = [
                     a === 1 ? `(x + ${bSq})` : `(${a}x + ${bSq})`,
                     a === 1 ? `(x - ${bSq})` : `(${a}x - ${bSq})`,
-                    `(x + ${b + 1})`, `(${a + 1}x - ${b})`, `(2x + ${b})`, `(x - 1)`
+                    `(x + ${b + 1})`, `(${a + 1}x - ${b})`, `(2x + ${b})`, `(x - 1)`, `(x + 2)`
                 ];
             } else if (stageIdx === 3) {
+                // 이차식 기본
                 let m = getRandomInt(-6, 6); if (m === 0) m = 2;
                 let n = getRandomInt(-6, 6); if (n === 0) n = -3;
                 
@@ -1146,19 +1158,32 @@
                 const f2 = n >= 0 ? `(x + ${n})` : `(x - ${Math.abs(n)})`;
 
                 correct = [f1, f2];
-                options = [
-                    f1, f2,
+                distractorCandidates = [
                     `(x + ${Math.abs(m) + 1})`, `(x - ${Math.abs(n) + 1})`,
-                    `(x + ${Math.abs(b)})`, `(x - ${Math.abs(c)})`, `(x + 1)`, `(x - 2)`
+                    `(x + ${Math.abs(b)})`, `(x - ${Math.abs(c)})`, `(x + 1)`, `(x - 2)`,
+                    `(x - ${Math.abs(m)})`, `(x + ${Math.abs(n)})`
                 ];
             } else {
-                let p = [1, 2, 3][getRandomInt(0, 2)];
-                let r = [1, 2][getRandomInt(0, 1)];
-                let q = getRandomInt(-4, 5); if (q === 0) q = 1;
-                let s = getRandomInt(-4, 5); if (s === 0) s = 2;
+                // Stage 5: 대각선 멜빵법 (보스전에서도 완전제곱식 형태 가능)
+                // 가끔 완전제곱식 형태 ax² + bx + c = (px + q)² 도 테스트 가능하도록 지원
+                const isPerfectSquareBoss = Math.random() < 0.25; // 25% 확률로 보스전 완전제곱식 출제
 
-                while (gcd(p, Math.abs(q)) !== 1) { q = getRandomInt(-4, 5); if (q === 0) q = 1; }
-                while (gcd(r, Math.abs(s)) !== 1) { s = getRandomInt(-4, 5); if (s === 0) s = 2; }
+                let p, r, q, s;
+                if (isPerfectSquareBoss) {
+                    p = [1, 2, 3][getRandomInt(0, 2)];
+                    r = p;
+                    q = getRandomInt(-3, 4); if (q === 0) q = 2;
+                    s = q;
+                    while (gcd(p, Math.abs(q)) !== 1) { q = getRandomInt(-3, 4); if (q === 0) q = 2; s = q; }
+                } else {
+                    p = [1, 2, 3][getRandomInt(0, 2)];
+                    r = [1, 2][getRandomInt(0, 1)];
+                    q = getRandomInt(-4, 5); if (q === 0) q = 1;
+                    s = getRandomInt(-4, 5); if (s === 0) s = 2;
+
+                    while (gcd(p, Math.abs(q)) !== 1) { q = getRandomInt(-4, 5); if (q === 0) q = 1; }
+                    while (gcd(r, Math.abs(s)) !== 1) { s = getRandomInt(-4, 5); if (s === 0) s = 2; }
+                }
 
                 const a = p * r;
                 const b = p * s + q * r;
@@ -1181,20 +1206,53 @@
                 const factor2 = `(${rStr} ${sStr})`;
 
                 correct = [factor1, factor2];
-                options = [
-                    factor1, factor2,
+                distractorCandidates = [
                     `(${pStr} ${sStr})`, `(${rStr} ${qStr})`,
-                    `(x + ${Math.abs(b)})`, `(${a}x + 1)`, `(x - ${Math.abs(c)})`, `(2x + 3)`
+                    `(x + ${Math.abs(b)})`, `(${a}x + 1)`, `(x - ${Math.abs(c)})`, `(2x + 3)`,
+                    `(${pStr} - ${Math.abs(q)})`, `(${rStr} + 1)`
                 ];
             }
 
-            options = [...new Set(options)];
-            while (options.length < 8) {
-                options.push(`(x + ${options.length + 1})`);
-            }
-            options.sort(() => Math.random() - 0.5);
+            // [중요 버그 수정]: 정답 카드 2장은 완전제곱식이라 서로 같더라도 무조건 2장 모두 보기 풀에 포함!
+            // 나머지 6개 보기는 정답과 겹치지 않는 방해 보기로 중복 제거하여 채움
+            const optionCards = [];
+            
+            // 1. 정답 카드 2장을 먼저 할당 (완전제곱식이면 동일한 텍스트 2개)
+            optionCards.push(correct[0]);
+            optionCards.push(correct[1]);
 
-            return { expr, correct, options, coeffs };
+            // 2. 오답 카드들 중 정답과 겹치지 않는 유일한 보기만 추출
+            const uniqueDistractors = [];
+            for (let d of distractorCandidates) {
+                if (d !== correct[0] && d !== correct[1] && !uniqueDistractors.includes(d)) {
+                    uniqueDistractors.push(d);
+                }
+            }
+
+            // 3. 8장이 될 때까지 오답 카드로 채움
+            let fallbackNum = 1;
+            while (uniqueDistractors.length < 6) {
+                const dummy = `(x + ${fallbackNum})`;
+                if (dummy !== correct[0] && dummy !== correct[1] && !uniqueDistractors.includes(dummy)) {
+                    uniqueDistractors.push(dummy);
+                }
+                fallbackNum++;
+            }
+
+            // 4. 무작위 섞기 후 8장 완성
+            uniqueDistractors.sort(() => Math.random() - 0.5);
+            for (let i = 0; i < 6; i++) {
+                optionCards.push(uniqueDistractors[i]);
+            }
+
+            // 5. 보기 순서 섞기 및 ID 부여
+            optionCards.sort(() => Math.random() - 0.5);
+            const optionsWithId = optionCards.map((text, idx) => ({
+                id: `card-${idx}-${Date.now()}`,
+                text: text
+            }));
+
+            return { expr, correct, options: optionsWithId, coeffs };
         }
 
         function loadFloor() {
@@ -1241,7 +1299,7 @@
                 calcBanner.classList.add('hidden');
             }
 
-            selectedCards = [];
+            selectedCardIds = [];
             renderSelectedCards();
             renderCardOptions(currentQuestion.options);
         }
@@ -1249,26 +1307,32 @@
         function renderCardOptions(options) {
             const container = document.getElementById('cards-container');
             container.innerHTML = options.map(opt => `
-                <button onclick="selectCard('${opt.replace(/'/g, "\\'")}', this)" class="factor-card bg-slate-800 hover:bg-slate-700/80 border border-slate-700/80 p-3 rounded-xl font-mono text-sm font-bold text-amber-300 transition duration-150 flex items-center justify-center space-x-1 shadow">
-                    <span>${opt}</span>
+                <button id="${opt.id}" onclick="selectCard('${opt.id}')" class="factor-card bg-slate-800 hover:bg-slate-700/80 border border-slate-700/80 p-3 rounded-xl font-mono text-sm font-bold text-amber-300 transition duration-150 flex items-center justify-center space-x-1 shadow">
+                    <span>${escapeHtml(opt.text)}</span>
                 </button>
             `).join('');
         }
 
-        function selectCard(cardText, element) {
-            if (selectedCards.includes(cardText)) {
-                selectedCards = selectedCards.filter(c => c !== cardText);
+        // [핵심 개선]: 고유 ID로 카드를 선택하여 동일한 식이 2개 있더라도 각각 독립 선택 가능!
+        function selectCard(cardId) {
+            const element = document.getElementById(cardId);
+            if (!element) return;
+
+            if (selectedCardIds.includes(cardId)) {
+                // 선택 취소
+                selectedCardIds = selectedCardIds.filter(id => id !== cardId);
                 element.classList.remove('card-selected');
             } else {
-                if (selectedCards.length >= 2) return;
-                selectedCards.push(cardText);
+                // 최대 2개까지만 선택
+                if (selectedCardIds.length >= 2) return;
+                selectedCardIds.push(cardId);
                 element.classList.add('card-selected');
             }
             renderSelectedCards();
         }
 
         function clearSelectedCards() {
-            selectedCards = [];
+            selectedCardIds = [];
             document.querySelectorAll('.factor-card').forEach(el => el.classList.remove('card-selected'));
             renderSelectedCards();
         }
@@ -1277,22 +1341,36 @@
             const display = document.getElementById('selected-cards-display');
             const attackBtn = document.getElementById('attack-btn');
 
-            if (selectedCards.length === 0) {
+            if (selectedCardIds.length === 0) {
                 display.innerHTML = `<span class="text-slate-500 text-xs italic">보기의 카드를 클릭하여 2개 선택하세요</span>`;
                 attackBtn.disabled = true;
             } else {
-                display.innerHTML = selectedCards.map(c => `
-                    <span class="px-3 py-1 bg-violet-900/80 border border-violet-500 text-amber-300 font-mono text-xs font-bold rounded-lg shadow animate-pulse">${c}</span>
+                const selectedTexts = selectedCardIds.map(id => {
+                    const cardObj = currentQuestion.options.find(o => o.id === id);
+                    return cardObj ? cardObj.text : '';
+                });
+
+                display.innerHTML = selectedTexts.map(text => `
+                    <span class="px-3 py-1 bg-violet-900/80 border border-violet-500 text-amber-300 font-mono text-xs font-bold rounded-lg shadow animate-pulse">${escapeHtml(text)}</span>
                 `).join('<span class="text-slate-400 text-xs">×</span>');
-                attackBtn.disabled = selectedCards.length !== 2;
+                
+                attackBtn.disabled = selectedCardIds.length !== 2;
             }
         }
 
         function submitAttack() {
-            if (selectedCards.length !== 2 || !currentQuestion) return;
+            if (selectedCardIds.length !== 2 || !currentQuestion) return;
 
-            const [c1, c2] = selectedCards;
+            const selectedTexts = selectedCardIds.map(id => {
+                const cardObj = currentQuestion.options.find(o => o.id === id);
+                return cardObj ? cardObj.text : '';
+            });
+
+            const [c1, c2] = selectedTexts;
             const [target1, target2] = currentQuestion.correct;
+
+            // 정답 검증: 순서 상관없이 [c1, c2]가 [target1, target2]와 일치하는지 확인
+            // 완전제곱식인 경우 target1 === target2 이며 c1 === c2 === target1 일 때 정확히 참이 됨!
             const isCorrect = (c1 === target1 && c2 === target2) || (c1 === target2 && c2 === target1);
 
             if (isCorrect) {
@@ -1377,7 +1455,7 @@
 
                 updateMonsterUI();
                 updatePlayerUI();
-                checkLevelUp(); // 레벨업 시 랭킹 자동 전송
+                checkLevelUp();
 
                 if (currentMonster.hp <= 0) {
                     handleFloorClear();
@@ -1494,7 +1572,6 @@
             document.getElementById('player-hp-bar').style.width = `${hpPercent}%`;
         }
 
-        // 레벨업 시 즉시 서버로 실시간 점수 전송
         function checkLevelUp() {
             if (player.xp >= player.maxXp) {
                 player.level++;
@@ -1569,6 +1646,7 @@
             logMessage(`🧪 포션을 사용하여 HP 50을 회복했습니다!`);
         }
 
+        // 힌트 사용 시 오답 카드만 숨김 처리 (완전제곱식 정답 카드는 안전하게 보호)
         function useHint() {
             if (player.gold < 50) {
                 logMessage(`⚠️ 골드가 부족합니다! (필요: 50G)`);
@@ -1579,17 +1657,33 @@
             player.gold -= 50;
             updatePlayerUI();
 
-            const correctSet = new Set(currentQuestion.correct);
-            const cardButtons = document.querySelectorAll('.factor-card');
-            let removedCount = 0;
+            // 정답 카드 2개(target1, target2)의 텍스트 파악
+            // 정답 카드를 제외한 보기 카드 중 2개를 숨김 처리
+            const [t1, t2] = currentQuestion.correct;
+            let neededMatches = (t1 === t2) ? 2 : 1;
+            let protectedIds = [];
 
-            cardButtons.forEach(btn => {
-                const text = btn.innerText.trim();
-                if (!correctSet.has(text) && removedCount < 2 && btn.style.display !== 'none') {
-                    btn.style.display = 'none';
-                    removedCount++;
+            // 정답에 해당하는 카드는 숨기지 않도록 보호 ID 리스트 작성
+            let matchedT1 = 0;
+            for (let opt of currentQuestion.options) {
+                if (opt.text === t1 && matchedT1 < neededMatches) {
+                    protectedIds.push(opt.id);
+                    matchedT1++;
+                } else if (opt.text === t2 && !protectedIds.includes(opt.id)) {
+                    protectedIds.push(opt.id);
                 }
-            });
+            }
+
+            let removedCount = 0;
+            for (let opt of currentQuestion.options) {
+                if (!protectedIds.includes(opt.id) && removedCount < 2) {
+                    const btn = document.getElementById(opt.id);
+                    if (btn && btn.style.display !== 'none') {
+                        btn.style.display = 'none';
+                        removedCount++;
+                    }
+                }
+            }
 
             logMessage(`📜 힌트 주문서 사용! 잘못된 보기 카드 2개를 제거했습니다.`);
         }
